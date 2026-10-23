@@ -21,6 +21,15 @@ These instructions apply to every AI assistant or AI-powered coding agent contri
 - If the task grows beyond the issue's scope, update the issue or open a follow-up issue before doing the extra work.
 - Report blockers and decisions in the issue or PR so they are visible to the team.
 
+### Rule 2A — Every issue must include a testing procedure
+
+- Every new issue, including bug reports, enhancements, documentation tasks, and refactors, must include an issue-specific **Testing procedure** section before implementation begins.
+- Include setup/preconditions, numbered reproduction or verification steps, expected results for each important step, relevant regression checks, and fields to record browser/OS/device or other environment, build/commit, pass/fail results, and evidence.
+- Tailor the procedure to the actual feature. Do not use generic boilerplate as a substitute for meaningful steps. For work that cannot be executed yet, describe how it will be tested once implemented.
+- Keep **Acceptance criteria** separate from test steps: acceptance criteria state what must be true; the testing procedure explains how to verify it.
+- If an issue lacks a procedure, add one before implementation or ask the product owner for clarification when the behavior cannot be determined safely.
+- Update existing open issues with testing procedures when practical. Do not close issues or mark them resolved merely because tests were added or work has started.
+
 ### Rule 3 — Branch and PR hygiene
 
 - Use a descriptive branch name, such as `feat/stage-display`, `fix/slide-navigation`, or `docs/ai-instructions`.
@@ -104,6 +113,10 @@ Any additional AI agent must follow all rules in this document, work only within
 ## 5. Engineering and quality expectations
 
 Before opening a PR, the implementing AI should, as applicable:
+- Follow the issue's testing procedure and report the result of each relevant step.
+- Include a **Testing and verification** section in the PR description with environment (browser/OS/device/build or commit), commands/manual steps run, pass/fail outcomes, and evidence such as screenshots or logs when useful.
+- Clearly mark any steps not run and explain why; provide remaining manual verification steps for the product owner.
+- Explicitly distinguish static code review, automated tests, and actual runtime/browser verification. Never imply one proves another.
 - Review the relevant code and issue requirements.
 - Implement only the agreed scope.
 - Test the main user workflow and likely regression paths.
@@ -148,12 +161,12 @@ A task is ready for product-owner review when:
 
 Before work:
 - [ ] Find or create the GitHub issue.
-- [ ] Confirm scope and acceptance criteria.
+- [ ] Confirm scope, acceptance criteria, and an issue-specific testing procedure.
 - [ ] Create a dedicated branch from the appropriate base.
 
 Before handoff:
 - [ ] Implement only the agreed scope.
-- [ ] Run relevant tests or state clearly why they could not be run.
+- [ ] Follow the issue testing procedure; record environment, pass/fail results, evidence, and any tests not run.
 - [ ] Review the diff and update documentation as needed.
 - [ ] Open a PR linked to the issue.
 - [ ] Leave the PR open for product-owner review.

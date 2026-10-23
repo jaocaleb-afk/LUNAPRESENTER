@@ -182,7 +182,7 @@ function initView(){
 
 /* ---------- Operator app ---------- */
 function initApp(){
-  let S={items:[],sel:{item:null,slide:null},live:null,msg:""},dirty=false;
+  let S={items:[],sel:{item:null,slide:null},live:null,msg:"",last:{}},dirty=false;
   const sample=()=>[
     {id:uid(),name:"Welcome",slides:[mk("Welcome to church",{size:8}),mk("Please silence your phones",{size:6})]},
     {id:uid(),name:"Sample song",slides:[mk("Verse 1\nFirst line of lyrics\nSecond line of lyrics"),mk("Chorus\nChorus line one\nChorus line two",{bg:"#1b2a4a"})]},
@@ -190,9 +190,10 @@ function initApp(){
   const toast=(t,err)=>{const e=$("#toast");e.textContent=t;e.className="show"+(err?" err":"");clearTimeout(toast.h);toast.h=setTimeout(()=>e.className="",2200)};
   const item=id=>S.items.find(i=>i.id===id);
   const selItem=()=>item(S.sel.item)||S.items[0]||null;
-  const selSlide=()=>{const it=selItem();return it?(it.slides.find(s=>s.id===S.sel.slide)||it.slides[0]):null};
+  const selSlide=()=>{const it=selItem();return it?(it.slides.find(s=>s.id===S.sel.slide)||null):null};
   const flat=()=>S.items.flatMap(it=>it.slides.map(s=>[it,s]));
-  function setSel(it,s){S.sel={item:it&&it.id,slide:s&&s.id}}
+  function setSel(it,s){S.sel={item:it&&it.id,slide:s&&s.id};if(it&&s)S.last[it.id]=s.id}
+  function selectItem(it){const id=S.last[it.id];S.sel={item:it.id,slide:it.slides.some(x=>x.id===id)?id:null}}
   function touch(){dirty=true;stat()}
   function stat(){const e=$("#status");e.textContent=dirty?"Unsaved changes":"Saved";e.className="pill"+(dirty?" dirty":"")}
 
@@ -253,18 +254,18 @@ function initApp(){
     const sel=selSlide();
     it.slides.forEach((s,n)=>{
       const c=document.createElement("div");c.className="card"+(sel&&sel.id===s.id?" sel":"")+(S.live&&S.live.slide===s.id?" onair":"");
-      c.draggable=true;c.dataset.id=s.id;c.tabIndex=0;
-      c.innerHTML=`<div class="sl"></div><small>${n+1}. ${esc(s.text.split("\n")[0]||"(empty)")}</small>`;
+      c.draggable=true;c.dataset.id=s.id;c.tabIndex=0;if(sel&&sel.id===s.id)c.setAttribute("aria-current","true");
+      c.innerHTML=`<div class="sl"></div><small>${S.live&&S.live.slide===s.id?'<span class="tag">LIVE</span> ':""}${n+1}. ${esc(s.text.split("\n")[0]||"(empty)")}</small>`;
       paint(c.firstChild,s);g.appendChild(c);
     });
   }
   function rEdit(){
     const s=selSlide();["tx","bg","fg","sz","al","split"].forEach(k=>$("#"+k).disabled=!s);
-    if(!s)return;$("#tx").value=s.text;$("#bg").value=s.bg;$("#fg").value=s.color;$("#sz").value=s.size;$("#al").value=s.align;
+    if(!s){$("#tx").value="";return}$("#tx").value=s.text;$("#bg").value=s.bg;$("#fg").value=s.color;$("#sz").value=s.size;$("#al").value=s.align;
   }
   function rLive(){
     const l=S.live,all=flat(),f=l&&all.find(([a,b])=>b.id===l.slide);
-    paint($("#pv"),selSlide());
+    const ps=selSlide();paint($("#pv"),ps);if(!ps)$("#pv").innerHTML='<div class="tx" style="font-size:3cqw;color:#8d94aa;text-align:center">No slide selected</div>';
     const b=$("#badge");
     if(!f){b.textContent="OFF AIR";b.className="badge";paint($("#lv"),null);return}
     b.textContent=l.mode==="show"?"LIVE":l.mode==="clear"?"LIVE: TEXT CLEARED":"LIVE: BLACK";b.className="badge on";
@@ -312,8 +313,8 @@ function initApp(){
       const onair=S.live&&S.live.item===it.id;
       if(!confirm(onair?"This item is live. Delete it anyway?":'Delete "'+it.name+'"?'))return;
       S.items.splice(i,1);if(onair)S.live=null;
-      const nx=S.items[Math.min(i,S.items.length-1)];setSel(nx,nx&&nx.slides[0]);touch();fid=nx&&nx.id;fa="nm";
-    }else setSel(it,it.slides[0]);
+      const nx=S.items[Math.min(i,S.items.length-1)];if(nx)selectItem(nx);else setSel(null,null);touch();fid=nx&&nx.id;fa="nm";
+    }else selectItem(it);
     publish();rAll();
     const f=fid?$('#items li[data-id="'+fid+'"] [data-a="'+fa+'"]'):null;(f||$("#addItem")).focus();
   };
@@ -335,7 +336,8 @@ function initApp(){
   }
   drag($("#items"),"li[data-id]",()=>S.items,false);
   drag($("#grid"),".card",()=>selItem().slides,true);
-  $("#grid").onclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();setSel(it,it.slides.find(s=>s.id===c.dataset.id));rGrid();rEdit();rLive()};
+  $("#grid").onclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem(),s=it.slides.find(x=>x.id===c.dataset.id);setSel(it,s);
+    if(S.live&&S.live.item===it.id){go(it,s);rEdit()}else{rGrid();rEdit();rLive()}};
   $("#grid").ondblclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();go(it,it.slides.find(s=>s.id===c.dataset.id))};
   $("#grid").onkeydown=e=>{if(e.key==="Enter"&&e.target.classList.contains("card")){e.stopPropagation();e.target.click();$("#golive").click()}};
 

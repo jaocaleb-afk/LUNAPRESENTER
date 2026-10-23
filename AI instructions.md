@@ -24,7 +24,7 @@ These instructions apply to every AI assistant or AI-powered coding agent contri
 ### Rule 3 — Branch and PR hygiene
 
 - Use a descriptive branch name, such as `feat/stage-display`, `fix/slide-navigation`, or `docs/ai-instructions`.
-- Base the branch on the current `main) unless the task explicitly depends on another branch.
+- Base the branch on the current `main` unless the task explicitly depends on another branch.
 - Use a clear PR title and description. Explain what changed, why, how it was tested, known limitations, and any follow-up work.
 - Include screenshots or a short recording for significant UI changes when practical.
 - Reference the issue in the PR description.

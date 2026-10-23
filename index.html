@@ -1,1 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LunaPresenter PRE1</title>
+<style>
+:root{--bg:#10131c;--p:#181c28;--p2:#222839;--t:#e9ebf2;--m:#8d94aa;--a:#7b93ff;--live:#ff4d55;--ok:#3ecf8e;--r:6px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t);font:14px/1.4 "Segoe UI",system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--p2);border:1px solid #333b52;border-radius:var(--r);padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--a)}
+:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+button.live{background:var(--live);border-color:var(--live);font-weight:700;color:#fff}
+input[type=text],textarea,select{background:#0c0f17;border:1px solid #333b52;border-radius:var(--r);padding:5px 8px}
+header{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--p);border-bottom:1px solid #2a3147;flex-wrap:wrap}
+.logo{font-size:16px}.logo small{color:var(--a);margin-left:4px}
+.sp{flex:1}
+.pill{padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--ok);color:var(--ok)}
+.pill.dirty{border-color:#f5a524;color:#f5a524}
+main{flex:1;display:grid;grid-template-columns:240px 1fr 360px;min-height:0}
+section{padding:10px;overflow:auto;border-right:1px solid #2a3147;min-height:0}
+#right{border:0}
+h2{font-size:14px;margin:0 0 8px;display:flex;gap:6px;align-items:center}
+ul{list-style:none;margin:0;padding:0}
+#items li{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:var(--r);cursor:pointer;border:1px solid transparent}
+#items li:hover{background:var(--p)}
+#items li.sel{background:var(--p2);border-color:var(--a)}
+#items li.onair{box-shadow:inset 3px 0 var(--live)}
+#items .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#items small{color:var(--m)}
+.ib button{padding:0 4px;border:0;background:none;color:var(--m)}
+.ib{display:none}#items li:hover .ib,#items li.sel .ib{display:inline}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.card{border:2px solid transparent;border-radius:var(--r);padding:4px;background:var(--p);cursor:pointer}
+.card.sel{border-color:var(--a)}
+.card.onair{border-color:var(--live)}
+.card small{display:block;color:var(--m);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl{position:relative;aspect-ratio:16/9;container-type:size;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:4cqw;background:#000;border-radius:3px}
+.tx{white-space:pre-wrap;width:100%;line-height:1.25;font-weight:600}
+.lbl{font-size:12px;color:var(--m);margin:10px 0 4px;display:flex;gap:6px;align-items:center}
+.badge{padding:1px 8px;border-radius:3px;font-weight:700;font-size:11px;background:#333b52}
+.badge.on{background:var(--live);color:#fff}
+.ctrl{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}
+.ed{display:grid;gap:6px;grid-template-columns:1fr 1fr}
+.ed textarea{grid-column:1/-1;height:110px;resize:vertical}
+.ed label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--m)}
+.ed .w{grid-column:1/-1}
+.empty{color:var(--m);padding:20px;text-align:center}
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--p2);border:1px solid var(--a);padding:8px 14px;border-radius:var(--r);opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}#toast.err{border-color:var(--live)}
+dialog{background:var(--p);color:var(--t);border:1px solid var(--a);border-radius:var(--r)}
+dialog td{padding:2px 12px 2px 0}
+body.out{background:#000;display:block;overflow:hidden}
+#out .sl{width:min(100vw,177.78vh);margin:0 auto;border-radius:0}
+body.out #out{height:100vh;display:flex;align-items:center}
+#st{width:100%;height:100vh;padding:14px;display:flex;flex-direction:column;gap:10px}
+.sh{display:flex;justify-content:space-between;font-size:28px}
+.sg{display:grid;grid-template-columns:2fr 1fr;gap:14px;flex:1}
+#st .sl{width:100%}
+#sm{background:var(--live);color:#fff;font-size:34px;font-weight:700;padding:10px 16px;border-radius:var(--r)}
+@media(max-width:900px){main{grid-template-columns:1fr}section{border:0}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+ <b class="logo">LunaPresenter<small>PRE1</small></b>
+ <span id="status" class="pill" role="status">Saved</span>
+ <span class="sp"></span>
+ <input type="text" id="stagemsg" placeholder="Stage-only message" maxlength="120" aria-label="Stage message">
+ <button id="sendmsg">Send to stage</button><button id="clrmsg">Clear message</button>
+ <button id="save" title="Ctrl+S">Save</button><button id="exp">Export</button><button id="imp">Import</button>
+ <input type="file" id="file" accept=".json,application/json" hidden>
+ <button id="oOut">Open audience output</button><button id="oStage">Open stage</button><button id="help" aria-label="Shortcuts">?</button>
+</header>
+<main>
+ <section id="run" aria-label="Rundown">
+  <h2>Rundown <span class="sp"></span><button id="addItem">+ Item</button></h2>
+  <ul id="items"></ul>
+ </section>
+ <section id="mid" aria-label="Slides">
+  <h2><span id="itemTitle"></span><span class="sp"></span>
+   <button id="addSl">+ Slide</button><button id="dup">Duplicate</button><button id="del">Delete</button><button id="mvL" aria-label="Move left">◀</button><button id="mvR" aria-label="Move right">▶</button></h2>
+  <div id="grid"></div>
+ </section>
+ <section id="right" aria-label="Preview and live">
+  <div class="lbl"><span class="badge">PREVIEW</span> selected slide</div><div class="sl" id="pv"></div>
+  <div class="lbl"><span class="badge" id="badge">OFF AIR</span> audience output</div><div class="sl" id="lv"></div>
+  <div class="ctrl"><button id="prev">◀ Prev</button><button id="golive" class="live">Go live</button><button id="next">Next ▶</button><button id="clr">Clear text</button><button id="blk">Black</button></div>
+  <div class="ed">
+   <textarea id="tx" aria-label="Slide text" placeholder="Slide text. Blank lines can split into slides."></textarea>
+   <label>Background <input type="color" id="bg"></label>
+   <label>Text <input type="color" id="fg"></label>
+   <label>Size <input type="range" id="sz" min="2" max="14" step="0.5"></label>
+   <label>Align <select id="al"><option>left</option><option>center</option><option>right</option></select></label>
+   <button id="split" class="w">Split at blank lines into slides</button>
+  </div>
+ </section>
+</main>
+<div id="toast"></div>
+<dialog id="hd"><h3>Shortcuts</h3><table>
+<tr><td>→ / Space / PgDn</td><td>Next slide (goes live)</td></tr>
+<tr><td>← / PgUp</td><td>Previous slide</td></tr>
+<tr><td>Enter</td><td>Put selected slide live</td></tr>
+<tr><td>C</td><td>Clear text (keep background)</td></tr>
+<tr><td>B</td><td>Black screen</td></tr>
+<tr><td>Ctrl+S</td><td>Save</td></tr></table>
+<p>Audience output: click it to go fullscreen.</p><form method="dialog"><button>Close</button></form></dialog>
+</div>
+<div id="out" hidden></div>
 
+<script>
+"use strict";
+const KEY="luna-presenter-v1", $=s=>document.querySelector(s), uid=()=>Math.random().toString(36).slice(2,10);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const view=location.hash.slice(1);
+const chan="BroadcastChannel" in window?new BroadcastChannel("luna"):null;
+const mk=(text="",o={})=>({id:uid(),text,bg:"#0b1020",color:"#ffffff",size:6,align:"center",...o});
+
+function paint(el,s){
+  el.style.background=s?s.bg:"#000";
+  el.innerHTML=s?`<div class="tx" style="font-size:${s.size}cqw;color:${s.color};text-align:${s.align}">${esc(s.text)}</div>`:"";
+}
+function clean(d){
+  if(!d||d.version!==1||!Array.isArray(d.items))throw new Error("Not a LunaPresenter version 1 file.");
+  const col=(c,f)=>/^#[0-9a-f]{6}$/i.test(c)?c:f;
+  return d.items.slice(0,500).map(it=>({id:uid(),name:String((it&&it.name)||"Untitled").slice(0,100),
+    slides:(it&&Array.isArray(it.slides)&&it.slides.length?it.slides:[{}]).slice(0,500).map(s=>mk(String(s.text||"").slice(0,5000),
+      {bg:col(s.bg,"#0b1020"),color:col(s.color,"#ffffff"),size:Math.min(14,Math.max(2,+s.size||6)),
+       align:["left","center","right"].includes(s.align)?s.align:"center"}))}));
+}
+
+/* ---------- Audience + stage views ---------- */
+if(view==="output"||view==="stage") initView(); else initApp();
+
+function initView(){
+  $("#app").hidden=true;$("#out").hidden=false;document.body.className="out";document.title="LunaPresenter "+view;
+  const o=$("#out");
+  o.innerHTML=view==="output"?'<div class="sl" id="ob"></div>':
+   '<div id="st"><div class="sh"><b id="sn"></b><span id="sc"></span></div><div class="sg"><div><div class="lbl">NOW <b id="mode"></b></div><div class="sl" id="sa"></div></div><div><div class="lbl">NEXT: <span id="nn"></span></div><div class="sl" id="sb"></div></div></div><div id="sm" hidden></div></div>';
+  const draw=m=>{
+    if(!m)return;
+    if(view==="output"){
+      const c=m.cur;
+      paint($("#ob"),!c||m.mode==="black"?null:m.mode==="clear"?{...c,text:""}:c);
+    }else{
+      paint($("#sa"),m.cur);paint($("#sb"),m.next);
+      $("#sn").textContent=m.item||"";$("#nn").textContent=m.nextItem||"—";
+      $("#mode").textContent=m.mode==="show"?"":"("+m.mode+" on audience)";
+      $("#sm").hidden=!m.msg;$("#sm").textContent=m.msg||"";
+    }
+  };
+  if(chan)chan.onmessage=e=>{if(e.data&&e.data.t==="state")draw(e.data)};
+  addEventListener("storage",e=>{if(e.key==="luna-out"&&e.newValue)try{draw(JSON.parse(e.newValue))}catch{}});
+  try{draw(JSON.parse(localStorage.getItem("luna-out")))}catch{}
+  if(chan)chan.postMessage({t:"hello"});
+  if(view==="stage"){const tick=()=>$("#sc").textContent=new Date().toLocaleTimeString();tick();setInterval(tick,1000)}
+  else o.onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.()};
+}
+
+/* ---------- Operator app ---------- */
+function initApp(){
+  let S={items:[],sel:{item:null,slide:null},live:null,msg:""},dirty=false;
+  const sample=()=>[
+    {id:uid(),name:"Welcome",slides:[mk("Welcome to church",{size:8}),mk("Please silence your phones",{size:6})]},
+    {id:uid(),name:"Sample song",slides:[mk("Verse 1\nFirst line of lyrics\nSecond line of lyrics"),mk("Chorus\nChorus line one\nChorus line two",{bg:"#1b2a4a"})]},
+    {id:uid(),name:"Announcements",slides:[mk("This week\nYouth night Friday 7pm",{bg:"#2a1b3d"})]}];
+  const toast=(t,err)=>{const e=$("#toast");e.textContent=t;e.className="show"+(err?" err":"");clearTimeout(toast.h);toast.h=setTimeout(()=>e.className="",2200)};
+  const item=id=>S.items.find(i=>i.id===id);
+  const selItem=()=>item(S.sel.item)||S.items[0]||null;
+  const selSlide=()=>{const it=selItem();return it?(it.slides.find(s=>s.id===S.sel.slide)||it.slides[0]):null};
+  const flat=()=>S.items.flatMap(it=>it.slides.map(s=>[it,s]));
+  function setSel(it,s){S.sel={item:it&&it.id,slide:s&&s.id}}
+  function touch(){dirty=true;stat()}
+  function stat(){const e=$("#status");e.textContent=dirty?"Unsaved changes":"Saved";e.className="pill"+(dirty?" dirty":"")}
+
+  function load(){
+    try{const raw=localStorage.getItem(KEY);S.items=raw?clean(JSON.parse(raw)):sample()}
+    catch(e){S.items=sample();toast("Saved data could not be read. Sample content loaded.",1)}
+    setSel(S.items[0],S.items[0]&&S.items[0].slides[0]);
+  }
+  function save(){
+    try{localStorage.setItem(KEY,JSON.stringify({version:1,items:S.items}));dirty=false;stat();toast("Saved")}
+    catch(e){toast("Save failed: browser storage is full or blocked. Use Export.",1)}
+  }
+
+  /* output state */
+  function publish(){
+    const l=S.live,all=flat();let cur=null,next=null,it=null,nit=null;
+    if(l){const i=all.findIndex(([a,b])=>b.id===l.slide);
+      if(i>=0){cur=all[i][1];it=all[i][0];if(all[i+1]){next=all[i+1][1];nit=all[i+1][0].name}}}
+    const m={t:"state",mode:l?l.mode:"black",cur,next,item:it&&it.name,nextItem:nit,msg:S.msg};
+    try{localStorage.setItem("luna-out",JSON.stringify(m))}catch{}
+    chan&&chan.postMessage(m);
+  }
+  if(chan)chan.onmessage=e=>{if(e.data&&e.data.t==="hello")publish()};
+
+  function go(it,s,mode="show"){S.live={item:it.id,slide:s.id,mode};rLive();rRun();rGrid();publish()}
+  function mode(m){if(!S.live){toast("Nothing is live yet.",1);return}S.live.mode=S.live.mode===m?"show":m;rLive();publish()}
+  function step(d){
+    const all=flat();if(!all.length)return;
+    const base=S.live?S.live.slide:(selSlide()||{}).id;let i=all.findIndex(([a,b])=>b.id===base);
+    if(!S.live&&d>0)i=Math.max(i,0);else i=Math.max(0,Math.min(all.length-1,i+d));
+    const [it,s]=all[i];setSel(it,s);go(it,s);rAll();
+  }
+
+  /* render */
+  function rRun(){
+    const ul=$("#items");ul.innerHTML="";
+    if(!S.items.length){ul.innerHTML='<li class="empty">No items yet. Add one.</li>';return}
+    const cur=selItem();
+    S.items.forEach(it=>{
+      const li=document.createElement("li");li.draggable=true;li.dataset.id=it.id;
+      li.className=(cur&&cur.id===it.id?"sel ":"")+(S.live&&S.live.item===it.id?"onair":"");
+      li.innerHTML=`<span class="nm">${esc(it.name)}</span><small>${it.slides.length}</small><span class="ib"><button data-a="up" aria-label="Move up">▲</button><button data-a="dn" aria-label="Move down">▼</button><button data-a="ren" aria-label="Rename">✎</button><button data-a="rm" aria-label="Delete">✕</button></span>`;
+      ul.appendChild(li);
+    });
+  }
+  function rGrid(){
+    const g=$("#grid"),it=selItem();g.innerHTML="";
+    $("#itemTitle").textContent=it?it.name:"No item selected";
+    if(!it){g.innerHTML='<div class="empty">Add an item to start building slides.</div>';return}
+    const sel=selSlide();
+    it.slides.forEach((s,n)=>{
+      const c=document.createElement("div");c.className="card"+(sel&&sel.id===s.id?" sel":"")+(S.live&&S.live.slide===s.id?" onair":"");
+      c.draggable=true;c.dataset.id=s.id;c.tabIndex=0;
+      c.innerHTML=`<div class="sl"></div><small>${n+1}. ${esc(s.text.split("\n")[0]||"(empty)")}</small>`;
+      paint(c.firstChild,s);g.appendChild(c);
+    });
+  }
+  function rEdit(){
+    const s=selSlide();["tx","bg","fg","sz","al","split"].forEach(k=>$("#"+k).disabled=!s);
+    if(!s)return;$("#tx").value=s.text;$("#bg").value=s.bg;$("#fg").value=s.color;$("#sz").value=s.size;$("#al").value=s.align;
+  }
+  function rLive(){
+    const l=S.live,all=flat(),f=l&&all.find(([a,b])=>b.id===l.slide);
+    paint($("#pv"),selSlide());
+    const b=$("#badge");
+    if(!f){b.textContent="OFF AIR";b.className="badge";paint($("#lv"),null);return}
+    b.textContent=l.mode==="show"?"LIVE":l.mode==="clear"?"LIVE: TEXT CLEARED":"LIVE: BLACK";b.className="badge on";
+    paint($("#lv"),l.mode==="black"?null:l.mode==="clear"?{...f[1],text:""}:f[1]);
+  }
+  function rAll(){rRun();rGrid();rEdit();rLive()}
+
+  /* editing */
+  const edit=(k,v)=>{const s=selSlide();if(!s)return;s[k]=v;touch();rGrid();rLive();if(S.live&&S.live.slide===s.id)publish()};
+  $("#tx").oninput=e=>edit("text",e.target.value);
+  $("#bg").oninput=e=>edit("bg",e.target.value);
+  $("#fg").oninput=e=>edit("color",e.target.value);
+  $("#sz").oninput=e=>edit("size",+e.target.value);
+  $("#al").onchange=e=>edit("align",e.target.value);
+  $("#split").onclick=()=>{
+    const it=selItem(),s=selSlide();if(!s)return;
+    const parts=s.text.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
+    if(parts.length<2){toast("No blank lines to split on.",1);return}
+    const i=it.slides.indexOf(s);
+    it.slides.splice(i,1,...parts.map((p,n)=>n?{...s,id:uid(),text:p}:{...s,text:p}));
+    touch();rAll();publish();toast("Split into "+parts.length+" slides");
+  };
+  $("#addItem").onclick=()=>{const n=prompt("Item name","New item");if(!n)return;const it={id:uid(),name:n.slice(0,100),slides:[mk("")]};S.items.push(it);setSel(it,it.slides[0]);touch();rAll()};
+  $("#addSl").onclick=()=>{const it=selItem();if(!it){toast("Add an item first.",1);return}const s=mk("");it.slides.splice(it.slides.indexOf(selSlide())+1,0,s);setSel(it,s);touch();rAll()};
+  $("#dup").onclick=()=>{const it=selItem(),s=selSlide();if(!s)return;const c={...s,id:uid()};it.slides.splice(it.slides.indexOf(s)+1,0,c);setSel(it,c);touch();rAll()};
+  $("#del").onclick=()=>{
+    const it=selItem(),s=selSlide();if(!s)return;
+    if(S.live&&S.live.slide===s.id&&!confirm("This slide is live. Delete it anyway?"))return;
+    const i=it.slides.indexOf(s);it.slides.splice(i,1);if(!it.slides.length)it.slides.push(mk(""));
+    if(S.live&&S.live.slide===s.id)S.live=null;
+    setSel(it,it.slides[Math.min(i,it.slides.length-1)]);touch();rAll();publish();
+  };
+  const mvS=d=>{const it=selItem(),s=selSlide();if(!s)return;const i=it.slides.indexOf(s),j=i+d;if(j<0||j>=it.slides.length)return;
+    it.slides.splice(i,1);it.slides.splice(j,0,s);touch();rGrid();publish()};
+  $("#mvL").onclick=()=>mvS(-1);$("#mvR").onclick=()=>mvS(1);
+
+  /* rundown clicks and drag */
+  $("#items").onclick=e=>{
+    const li=e.target.closest("li[data-id]");if(!li)return;const it=item(li.dataset.id),a=e.target.dataset.a,i=S.items.indexOf(it);
+    if(a==="up"||a==="dn"){const j=i+(a==="up"?-1:1);if(j>=0&&j<S.items.length){S.items.splice(i,1);S.items.splice(j,0,it);touch();publish()}}
+    else if(a==="ren"){const n=prompt("Rename item",it.name);if(n){it.name=n.slice(0,100);touch()}}
+    else if(a==="rm"){
+      const onair=S.live&&S.live.item===it.id;
+      if(!confirm(onair?"This item is live. Delete it anyway?":'Delete "'+it.name+'"?'))return;
+      S.items.splice(i,1);if(onair)S.live=null;const n=S.items[0];setSel(n,n&&n.slides[0]);touch();publish();
+    }else setSel(it,it.slides[0]);
+    rAll();
+  };
+  function drag(box,sel,list){
+    let from=null;
+    box.ondragstart=e=>{const el=e.target.closest(sel);if(el){from=el.dataset.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",from)}};
+    box.ondragover=e=>{if(from)e.preventDefault()};
+    box.ondrop=e=>{
+      e.preventDefault();const el=e.target.closest(sel);if(!el||!from||el.dataset.id===from)return;
+      const arr=list(),a=arr.findIndex(x=>x.id===from),b=arr.findIndex(x=>x.id===el.dataset.id);
+      const [m]=arr.splice(a,1);arr.splice(b,0,m);from=null;touch();rAll();publish();
+    };
+  }
+  drag($("#items"),"li[data-id]",()=>S.items);
+  drag($("#grid"),".card",()=>selItem().slides);
+  $("#grid").onclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();setSel(it,it.slides.find(s=>s.id===c.dataset.id));rGrid();rEdit();rLive()};
+  $("#grid").ondblclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();go(it,it.slides.find(s=>s.id===c.dataset.id))};
+  $("#grid").onkeydown=e=>{if(e.key==="Enter"&&e.target.classList.contains("card")){e.stopPropagation();e.target.click();$("#golive").click()}};
+
+  /* live controls */
+  $("#golive").onclick=()=>{const it=selItem(),s=selSlide();if(it&&s)go(it,s);else toast("Select a slide first.",1)};
+  $("#next").onclick=()=>step(1);$("#prev").onclick=()=>step(-1);
+  $("#clr").onclick=()=>mode("clear");$("#blk").onclick=()=>mode("black");
+
+  /* stage message */
+  $("#sendmsg").onclick=()=>{S.msg=$("#stagemsg").value.trim();publish();toast(S.msg?"Message sent to stage only":"Message cleared")};
+  $("#clrmsg").onclick=()=>{S.msg="";$("#stagemsg").value="";publish()};
+  $("#stagemsg").onkeydown=e=>{if(e.key==="Enter")$("#sendmsg").click()};
+
+  /* files, windows, help */
+  $("#save").onclick=save;
+  $("#exp").onclick=()=>{
+    const b=new Blob([JSON.stringify({version:1,app:"LunaPresenter",exported:new Date().toISOString(),items:S.items},null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lunapresenter-service.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Exported");
+  };
+  $("#imp").onclick=()=>$("#file").click();
+  $("#file").onchange=e=>{
+    const f=e.target.files[0];e.target.value="";if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{try{
+      const items=clean(JSON.parse(r.result));
+      if(!confirm("Replace the current service with "+items.length+" imported items?"))return;
+      S.items=items;S.live=null;setSel(items[0],items[0]&&items[0].slides[0]);touch();rAll();publish();toast("Imported");
+    }catch(err){toast("Import failed: "+err.message+" Current service unchanged.",1)}};
+    r.onerror=()=>toast("Could not read the file.",1);r.readAsText(f);
+  };
+  const base=location.href.split("#")[0];
+  const open=(v,f)=>{const w=window.open(base+"#"+v,"luna-"+v,f);if(!w)toast("Pop-up blocked. Allow pop-ups for this page.",1);else setTimeout(publish,400)};
+  $("#oOut").onclick=()=>open("output","popup,width=960,height=540");
+  $("#oStage").onclick=()=>open("stage","popup,width=960,height=540");
+  $("#help").onclick=()=>$("#hd").showModal();
+  addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue=""}});
+  addEventListener("keydown",e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();save();return}
+    if(/INPUT|TEXTAREA|SELECT|DIALOG/.test(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;
+    const k=e.key;
+    if(k==="ArrowRight"||k===" "||k==="PageDown"){e.preventDefault();step(1)}
+    else if(k==="ArrowLeft"||k==="PageUp"){e.preventDefault();step(-1)}
+    else if(k==="Enter"&&!(e.target.tagName==="BUTTON")){$("#golive").click()}
+    else if(k.toLowerCase()==="c")mode("clear");else if(k.toLowerCase()==="b")mode("black");
+  });
+
+  load();rAll();stat();publish();
+}
+</script>
+</body>
+</html>

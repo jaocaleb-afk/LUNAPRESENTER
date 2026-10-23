@@ -28,10 +28,12 @@ ul{list-style:none;margin:0;padding:0}
 #items li:hover{background:var(--p)}
 #items li.sel{background:var(--p2);border-color:var(--a)}
 #items li.onair{box-shadow:inset 3px 0 var(--live)}
-#items .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#items .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;background:none;border:0;padding:2px 0;color:inherit}
+#items .nm:focus-visible,.ib button:focus-visible{outline:2px solid var(--a);outline-offset:1px}
+.tag{background:var(--live);color:#fff;border-radius:3px;padding:0 5px;font-size:11px;font-weight:700;margin-left:4px}
 #items small{color:var(--m)}
 .ib button{padding:0 4px;border:0;background:none;color:var(--m)}
-.ib{display:none}#items li:hover .ib,#items li.sel .ib{display:inline}
+.ib{display:none}#items li:hover .ib,#items li.sel .ib,#items li:focus-within .ib{display:inline}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
 .card{border:2px solid transparent;border-radius:var(--r);padding:4px;background:var(--p);cursor:pointer}
 .card.sel{border-color:var(--a)}
@@ -60,6 +62,9 @@ body.out #out{height:100vh;display:flex;align-items:center}
 .sg{display:grid;grid-template-columns:2fr 1fr;gap:14px;flex:1}
 #st .sl{width:100%}
 #sm{background:var(--live);color:#fff;font-size:34px;font-weight:700;padding:10px 16px;border-radius:var(--r)}
+#items li.dropb{box-shadow:inset 0 3px var(--a)}#items li.dropa{box-shadow:inset 0 -3px var(--a)}
+.card.dropb{box-shadow:inset 4px 0 var(--a)}.card.dropa{box-shadow:inset -4px 0 var(--a)}
+#diag{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;font-size:16px;color:#aab;background:rgba(0,0,0,.65);text-align:center}#diag[hidden]{display:none}
 @media(max-width:900px){main{grid-template-columns:1fr}section{border:0}}
 </style>
 </head>
@@ -138,24 +143,39 @@ if(view==="output"||view==="stage") initView(); else initApp();
 function initView(){
   $("#app").hidden=true;$("#out").hidden=false;document.body.className="out";document.title="LunaPresenter "+view;
   const o=$("#out");
-  o.innerHTML=view==="output"?'<div class="sl" id="ob"></div>':
-   '<div id="st"><div class="sh"><b id="sn"></b><span id="sc"></span></div><div class="sg"><div><div class="lbl">NOW <b id="mode"></b></div><div class="sl" id="sa"></div></div><div><div class="lbl">NEXT: <span id="nn"></span></div><div class="sl" id="sb"></div></div></div><div id="sm" hidden></div></div>';
+  o.innerHTML=(view==="output"?'<div class="sl" id="ob"></div>':
+   '<div id="st"><div class="sh"><b id="sn"></b><span id="sc"></span></div><div class="sg"><div><div class="lbl">NOW <b id="mode"></b></div><div class="sl" id="sa"></div></div><div><div class="lbl">NEXT: <span id="nn"></span></div><div class="sl" id="sb"></div></div></div><div id="sm" hidden></div></div>')
+   +'<div id="diag" role="status"></div>';
+  const diag=$("#diag"),note=t=>{diag.textContent=t;diag.hidden=!t};
+  let got=false;
+  note("Waiting for the operator window\u2026");
   const draw=m=>{
-    if(!m)return;
+    if(!m||m.t!=="state")return;
+    got=true;note("");
     if(view==="output"){
       const c=m.cur;
       paint($("#ob"),!c||m.mode==="black"?null:m.mode==="clear"?{...c,text:""}:c);
     }else{
       paint($("#sa"),m.cur);paint($("#sb"),m.next);
-      $("#sn").textContent=m.item||"";$("#nn").textContent=m.nextItem||"—";
+      $("#sn").textContent=m.item||"";$("#nn").textContent=m.nextItem||"\u2014";
       $("#mode").textContent=m.mode==="show"?"":"("+m.mode+" on audience)";
       $("#sm").hidden=!m.msg;$("#sm").textContent=m.msg||"";
     }
+    const ack={t:"ack",v:view};
+    try{window.opener&&window.opener.postMessage(ack,"*")}catch{}
+    chan&&chan.postMessage(ack);
   };
-  if(chan)chan.onmessage=e=>{if(e.data&&e.data.t==="state")draw(e.data)};
+  const hello=()=>{
+    chan&&chan.postMessage({t:"hello"});
+    try{window.opener&&window.opener.postMessage({t:"hello"},"*")}catch{}
+    try{localStorage.setItem("luna-hello",String(Date.now()))}catch{}
+  };
+  if(chan)chan.onmessage=e=>draw(e.data);
+  addEventListener("message",e=>{if(e.source===window.opener)draw(e.data)});
   addEventListener("storage",e=>{if(e.key==="luna-out"&&e.newValue)try{draw(JSON.parse(e.newValue))}catch{}});
-  try{draw(JSON.parse(localStorage.getItem("luna-out")))}catch{}
-  if(chan)chan.postMessage({t:"hello"});
+  hello();
+  const retry=setInterval(()=>{if(got)clearInterval(retry);else hello()},1500);
+  setTimeout(()=>{if(!got)note("Not connected to the operator window. Use \u201cOpen "+(view==="output"?"audience output":"stage")+"\u201d in the operator window, in the same browser. If this stays blank, serve the app over http (for example python3 -m http.server) instead of opening the file directly.")},3500);
   if(view==="stage"){const tick=()=>$("#sc").textContent=new Date().toLocaleTimeString();tick();setInterval(tick,1000)}
   else o.onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.()};
 }
@@ -187,15 +207,22 @@ function initApp(){
   }
 
   /* output state */
+  const wins={},seen={};
   function publish(){
     const l=S.live,all=flat();let cur=null,next=null,it=null,nit=null;
     if(l){const i=all.findIndex(([a,b])=>b.id===l.slide);
       if(i>=0){cur=all[i][1];it=all[i][0];if(all[i+1]){next=all[i+1][1];nit=all[i+1][0].name}}}
-    const m={t:"state",mode:l?l.mode:"black",cur,next,item:it&&it.name,nextItem:nit,msg:S.msg};
+    const m={t:"state",ts:Date.now(),mode:l?l.mode:"black",cur,next,item:it&&it.name,nextItem:nit,msg:S.msg};
     try{localStorage.setItem("luna-out",JSON.stringify(m))}catch{}
     chan&&chan.postMessage(m);
+    Object.values(wins).forEach(w=>{try{if(w&&!w.closed)w.postMessage(m,"*")}catch{}});
   }
-  if(chan)chan.onmessage=e=>{if(e.data&&e.data.t==="hello")publish()};
+  if(chan)chan.onmessage=e=>{const d=e.data||{};if(d.t==="hello")publish();else if(d.t==="ack")seen[d.v]=true};
+  addEventListener("message",e=>{
+    const d=e.data||{},v=Object.keys(wins).find(k=>wins[k]===e.source);if(!v)return;
+    if(d.t==="hello"){seen[v]=true;publish()}else if(d.t==="ack")seen[v]=true;
+  });
+  addEventListener("storage",e=>{if(e.key==="luna-hello")publish()});
 
   function go(it,s,mode="show"){S.live={item:it.id,slide:s.id,mode};rLive();rRun();rGrid();publish()}
   function mode(m){if(!S.live){toast("Nothing is live yet.",1);return}S.live.mode=S.live.mode===m?"show":m;rLive();publish()}
@@ -214,7 +241,8 @@ function initApp(){
     S.items.forEach(it=>{
       const li=document.createElement("li");li.draggable=true;li.dataset.id=it.id;
       li.className=(cur&&cur.id===it.id?"sel ":"")+(S.live&&S.live.item===it.id?"onair":"");
-      li.innerHTML=`<span class="nm">${esc(it.name)}</span><small>${it.slides.length}</small><span class="ib"><button data-a="up" aria-label="Move up">▲</button><button data-a="dn" aria-label="Move down">▼</button><button data-a="ren" aria-label="Rename">✎</button><button data-a="rm" aria-label="Delete">✕</button></span>`;
+      const n=esc(it.name),isSel=cur&&cur.id===it.id,onair=S.live&&S.live.item===it.id;
+      li.innerHTML=`<button class="nm" data-a="nm"${isSel?' aria-current="true"':''}>${n}${onair?'<span class="tag">LIVE</span>':''}</button><small aria-label="${it.slides.length} slides">${it.slides.length}</small><span class="ib"><button data-a="up" aria-label="Move ${n} up">▲</button><button data-a="dn" aria-label="Move ${n} down">▼</button><button data-a="ren" aria-label="Rename ${n}">✎</button><button data-a="rm" aria-label="Delete ${n}">✕</button></span>`;
       ul.appendChild(li);
     });
   }
@@ -245,7 +273,7 @@ function initApp(){
   function rAll(){rRun();rGrid();rEdit();rLive()}
 
   /* editing */
-  const edit=(k,v)=>{const s=selSlide();if(!s)return;s[k]=v;touch();rGrid();rLive();if(S.live&&S.live.slide===s.id)publish()};
+  const edit=(k,v)=>{const s=selSlide();if(!s)return;s[k]=v;touch();rGrid();rLive();publish()};
   $("#tx").oninput=e=>edit("text",e.target.value);
   $("#bg").oninput=e=>edit("bg",e.target.value);
   $("#fg").oninput=e=>edit("color",e.target.value);
@@ -259,9 +287,9 @@ function initApp(){
     it.slides.splice(i,1,...parts.map((p,n)=>n?{...s,id:uid(),text:p}:{...s,text:p}));
     touch();rAll();publish();toast("Split into "+parts.length+" slides");
   };
-  $("#addItem").onclick=()=>{const n=prompt("Item name","New item");if(!n)return;const it={id:uid(),name:n.slice(0,100),slides:[mk("")]};S.items.push(it);setSel(it,it.slides[0]);touch();rAll()};
-  $("#addSl").onclick=()=>{const it=selItem();if(!it){toast("Add an item first.",1);return}const s=mk("");it.slides.splice(it.slides.indexOf(selSlide())+1,0,s);setSel(it,s);touch();rAll()};
-  $("#dup").onclick=()=>{const it=selItem(),s=selSlide();if(!s)return;const c={...s,id:uid()};it.slides.splice(it.slides.indexOf(s)+1,0,c);setSel(it,c);touch();rAll()};
+  $("#addItem").onclick=()=>{const n=prompt("Item name","New item");if(!n)return;const it={id:uid(),name:n.slice(0,100),slides:[mk("")]};S.items.push(it);setSel(it,it.slides[0]);touch();publish();rAll()};
+  $("#addSl").onclick=()=>{const it=selItem();if(!it){toast("Add an item first.",1);return}const s=mk("");it.slides.splice(it.slides.indexOf(selSlide())+1,0,s);setSel(it,s);touch();publish();rAll()};
+  $("#dup").onclick=()=>{const it=selItem(),s=selSlide();if(!s)return;const c={...s,id:uid()};it.slides.splice(it.slides.indexOf(s)+1,0,c);setSel(it,c);touch();publish();rAll()};
   $("#del").onclick=()=>{
     const it=selItem(),s=selSlide();if(!s)return;
     if(S.live&&S.live.slide===s.id&&!confirm("This slide is live. Delete it anyway?"))return;
@@ -275,28 +303,38 @@ function initApp(){
 
   /* rundown clicks and drag */
   $("#items").onclick=e=>{
-    const li=e.target.closest("li[data-id]");if(!li)return;const it=item(li.dataset.id),a=e.target.dataset.a,i=S.items.indexOf(it);
-    if(a==="up"||a==="dn"){const j=i+(a==="up"?-1:1);if(j>=0&&j<S.items.length){S.items.splice(i,1);S.items.splice(j,0,it);touch();publish()}}
+    const li=e.target.closest("li[data-id]");if(!li)return;
+    const b=e.target.closest("button"),it=item(li.dataset.id),a=b?b.dataset.a:"nm",i=S.items.indexOf(it);
+    let fid=it.id,fa=a;
+    if(a==="up"||a==="dn"){const j=i+(a==="up"?-1:1);if(j>=0&&j<S.items.length){S.items.splice(i,1);S.items.splice(j,0,it);touch()}}
     else if(a==="ren"){const n=prompt("Rename item",it.name);if(n){it.name=n.slice(0,100);touch()}}
     else if(a==="rm"){
       const onair=S.live&&S.live.item===it.id;
       if(!confirm(onair?"This item is live. Delete it anyway?":'Delete "'+it.name+'"?'))return;
-      S.items.splice(i,1);if(onair)S.live=null;const n=S.items[0];setSel(n,n&&n.slides[0]);touch();publish();
+      S.items.splice(i,1);if(onair)S.live=null;
+      const nx=S.items[Math.min(i,S.items.length-1)];setSel(nx,nx&&nx.slides[0]);touch();fid=nx&&nx.id;fa="nm";
     }else setSel(it,it.slides[0]);
-    rAll();
+    publish();rAll();
+    const f=fid?$('#items li[data-id="'+fid+'"] [data-a="'+fa+'"]'):null;(f||$("#addItem")).focus();
   };
-  function drag(box,sel,list){
+  function drag(box,sel,list,horiz){
     let from=null;
+    const clr=()=>box.querySelectorAll(".dropb,.dropa").forEach(x=>x.classList.remove("dropb","dropa"));
+    const after=(e,el)=>{const r=el.getBoundingClientRect();return horiz?e.clientX>r.left+r.width/2:e.clientY>r.top+r.height/2};
     box.ondragstart=e=>{const el=e.target.closest(sel);if(el){from=el.dataset.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",from)}};
-    box.ondragover=e=>{if(from)e.preventDefault()};
+    box.ondragover=e=>{if(!from)return;e.preventDefault();clr();const el=e.target.closest(sel);if(el&&el.dataset.id!==from)el.classList.add(after(e,el)?"dropa":"dropb")};
+    box.ondragend=()=>{from=null;clr()};
     box.ondrop=e=>{
-      e.preventDefault();const el=e.target.closest(sel);if(!el||!from||el.dataset.id===from)return;
-      const arr=list(),a=arr.findIndex(x=>x.id===from),b=arr.findIndex(x=>x.id===el.dataset.id);
-      const [m]=arr.splice(a,1);arr.splice(b,0,m);from=null;touch();rAll();publish();
+      e.preventDefault();const el=e.target.closest(sel),aft=el&&after(e,el);clr();
+      if(!el||!from||el.dataset.id===from){from=null;return}
+      const arr=list(),a=arr.findIndex(x=>x.id===from);if(a<0){from=null;return}
+      const [mv]=arr.splice(a,1),b=arr.findIndex(x=>x.id===el.dataset.id);
+      if(b<0){arr.splice(a,0,mv);from=null;return}
+      arr.splice(aft?b+1:b,0,mv);from=null;touch();rAll();publish();
     };
   }
-  drag($("#items"),"li[data-id]",()=>S.items);
-  drag($("#grid"),".card",()=>selItem().slides);
+  drag($("#items"),"li[data-id]",()=>S.items,false);
+  drag($("#grid"),".card",()=>selItem().slides,true);
   $("#grid").onclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();setSel(it,it.slides.find(s=>s.id===c.dataset.id));rGrid();rEdit();rLive()};
   $("#grid").ondblclick=e=>{const c=e.target.closest(".card");if(!c)return;const it=selItem();go(it,it.slides.find(s=>s.id===c.dataset.id))};
   $("#grid").onkeydown=e=>{if(e.key==="Enter"&&e.target.classList.contains("card")){e.stopPropagation();e.target.click();$("#golive").click()}};
@@ -329,7 +367,12 @@ function initApp(){
     r.onerror=()=>toast("Could not read the file.",1);r.readAsText(f);
   };
   const base=location.href.split("#")[0];
-  const open=(v,f)=>{const w=window.open(base+"#"+v,"luna-"+v,f);if(!w)toast("Pop-up blocked. Allow pop-ups for this page.",1);else setTimeout(publish,400)};
+  const open=(v,f)=>{
+    const w=window.open(base+"#"+v,"luna-"+v,f);
+    if(!w){toast("Pop-up blocked. Allow pop-ups for this page, then try again.",1);return}
+    wins[v]=w;seen[v]=false;setTimeout(publish,400);
+    setTimeout(()=>{if(!seen[v])toast("The "+v+" window has not connected. Keep it in the same browser. If it stays blank, serve the app over http (python3 -m http.server).",1)},2500);
+  };
   $("#oOut").onclick=()=>open("output","popup,width=960,height=540");
   $("#oStage").onclick=()=>open("stage","popup,width=960,height=540");
   $("#help").onclick=()=>$("#hd").showModal();
@@ -338,6 +381,7 @@ function initApp(){
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();save();return}
     if(/INPUT|TEXTAREA|SELECT|DIALOG/.test(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;
     const k=e.key;
+    if(e.target.tagName==="BUTTON"&&(k===" "||k==="Enter"))return;
     if(k==="ArrowRight"||k===" "||k==="PageDown"){e.preventDefault();step(1)}
     else if(k==="ArrowLeft"||k==="PageUp"){e.preventDefault();step(-1)}
     else if(k==="Enter"&&!(e.target.tagName==="BUTTON")){$("#golive").click()}
